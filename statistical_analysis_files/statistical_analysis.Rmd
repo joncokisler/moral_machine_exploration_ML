@@ -1,0 +1,90 @@
+```{r}
+library(dplyr)
+moral_machine <- read.csv("../data/moral_machine_small_sample_h2o.csv")
+
+
+moral_machine <- moral_machine %>% dplyr::select(-X)
+```
+
+
+```{r}
+set.seed(2024)
+moral_machine$Saved <- as.factor(moral_machine$Saved)
+
+moral_machine_small <- moral_machine[sample(0.25*nrow(moral_machine)),]
+head(moral_machine_small)
+dropped_DF <- moral_machine_small %>% dplyr::select(-c(AttributeLevel,
+                                                ScenarioTypeStrict,
+                                                ScenarioOrder,
+                                                ))
+
+train_index = sample(0.6 * nrow(moral_machine_small))
+train <- dropped_DF[train_index, ]
+test <- dropped_DF[-train_index,]
+
+```
+
+
+```{r}
+rm(moral_machine)
+```
+
+```{r}
+library(randomForest)
+
+
+
+tree <- randomForest(Saved ~ ., data=train, importance=TRUE,
+                        proximity=TRUE)
+```
+
+```{r}
+tree
+
+
+predictions_test <- predict(tree, test)
+
+sum(predictions_test == test$Saved) / nrow(test)
+
+response_matrix <- as.factor(as.numeric(train$Saved))
+predcitors_matrix <- train %>% dplyr::select(-Saved) %>% as.matrix()
+tune <- tuneRF(x=train %>% dplyr::select(-Saved),
+       y=train$Saved,
+       ntreeTry = 1000,
+       mtryStart=1,
+       improve=0.05)
+
+tuned_RF <- randomForest(Saved ~ ., data=train, importance=TRUE,
+             proximity=TRUE,
+             mtry=4,
+             ntree=700,
+             replace=T,
+             xtest=test %>% dplyr::select(-Saved),
+             ytest= test$Saved)
+
+plot(tune)
+```
+
+- 73% Test Set Accuracy (non-tuned RF)
+
+```{r}
+library(MASS)
+library(boot)
+
+logistic_reg <- glm(Saved ~. ,family = binomial(link="logit"), data=train)
+
+cv.glm(train, logistic_reg)
+
+summary(logistic_reg)
+test_subset <- test %>% dplyr::filter(!(UserCountry3 %in% c("ABW", "AFG", "BMU", "BOL", "DJI", "FRO", "JEY", "NGA", "OMN", "SYR")))
+
+predictions <- predict(logistic_reg, newdata=test_subset, type="response")
+
+
+sum(as.numeric(predictions > 0.5) == test$Saved) / nrow(test)
+
+```
+
+- 52 Percent test set accuracy
+
+# Kappa statistics
