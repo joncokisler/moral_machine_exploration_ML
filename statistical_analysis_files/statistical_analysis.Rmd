@@ -16,6 +16,10 @@ head(moral_machine_small)
 dropped_DF <- moral_machine_small %>% dplyr::select(-c(AttributeLevel,
                                                 ScenarioTypeStrict,
                                                 ScenarioOrder,
+                                                ScenarioType,
+                                                DefaultChoice,
+                                                NonDefaultChoice,
+                                                DefaultChoiceIsOmission
                                                 ))
 
 train_index = sample(0.6 * nrow(moral_machine_small))
@@ -54,6 +58,8 @@ tune <- tuneRF(x=train %>% dplyr::select(-Saved),
        mtryStart=1,
        improve=0.05)
 
+start.time <- Sys.time()
+
 tuned_RF <- randomForest(Saved ~ ., data=train, importance=TRUE,
              proximity=TRUE,
              mtry=4,
@@ -62,7 +68,13 @@ tuned_RF <- randomForest(Saved ~ ., data=train, importance=TRUE,
              xtest=test %>% dplyr::select(-Saved),
              ytest= test$Saved)
 
-plot(tune)
+end.time <- Sys.time()
+
+paste((end.time-start.time), "minutes")
+
+plot(tuned_RF, main="")
+title(main = "Random Forest Classifier - Test Set Error vs Num of trees grown")
+tuned_RF
 ```
 
 - 73% Test Set Accuracy (non-tuned RF)
@@ -70,21 +82,32 @@ plot(tune)
 ```{r}
 library(MASS)
 library(boot)
+start.time2 <- Sys.time()
+logistic_reg <- glm(Saved ~. ,family = binomial, data=train)
+end.time2 <- Sys.time()
 
-logistic_reg <- glm(Saved ~. ,family = binomial(link="logit"), data=train)
-
-cv.glm(train, logistic_reg)
+paste(end.time2-start.time2)
 
 summary(logistic_reg)
-test_subset <- test %>% dplyr::filter(!(UserCountry3 %in% c("ABW", "AFG", "BMU", "BOL", "DJI", "FRO", "JEY", "NGA", "OMN", "SYR")))
+test_subset <- test %>% dplyr::filter(!(UserCountry3 %in% c("GUF", "QAT",
+                                                            "AFG", "DJI", "JEY")))
 
 predictions <- predict(logistic_reg, newdata=test_subset, type="response")
 
 
 sum(as.numeric(predictions > 0.5) == test$Saved) / nrow(test)
 
+AIC(logistic_reg)
+
 ```
 
 - 52 Percent test set accuracy
 
-# Kappa statistics
+```{r}
+tuned_RF$importance[order((tuned_RF$importance[,1] + tuned_RF$importance[,2])/2),1:2]
+
+tuned_RF$importance[order(tuned_RF$importance[,1]),1:2]
+tuned_RF$importance[order(tuned_RF$importance[,2]),1:2]
+
+order((tuned_RF$importance[,1] + tuned_RF$importance[,2])/2)
+```
