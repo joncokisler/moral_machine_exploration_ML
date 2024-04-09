@@ -72,9 +72,10 @@ end.time <- Sys.time()
 
 paste((end.time-start.time), "minutes")
 
-plot(tuned_RF, main="")
-title(main = "Random Forest Classifier - Test Set Error vs Num of trees grown")
-tuned_RF
+
+
+plot(tuned_RF, main="Random Forest Classifier Test Set Error Rate vs Num of Trees Grown")
+tuned_RF$importance
 ```
 
 - 73% Test Set Accuracy (non-tuned RF)
@@ -83,14 +84,17 @@ tuned_RF
 library(MASS)
 library(boot)
 start.time2 <- Sys.time()
-logistic_reg <- glm(Saved ~. ,family = binomial, data=train)
+
+train_subset <- train %>% dplyr::select(-c(UserCountry3))
+logistic_reg <- glm(Saved ~. ,family = binomial, data=train_subset)
 end.time2 <- Sys.time()
 
 paste(end.time2-start.time2)
 
 summary(logistic_reg)
-test_subset <- test %>% dplyr::filter(!(UserCountry3 %in% c("GUF", "QAT",
-                                                            "AFG", "DJI", "JEY")))
+# test_subset <- test %>% dplyr::filter(!(UserCountry3 %in% c("GUF", "QAT",
+                                                            # "AFG", "DJI", "JEY")))
+test_subset <- test
 
 predictions <- predict(logistic_reg, newdata=test_subset, type="response")
 
@@ -99,15 +103,32 @@ sum(as.numeric(predictions > 0.5) == test$Saved) / nrow(test)
 
 AIC(logistic_reg)
 
+logistic_reg$terms
+```
+```{r}
+library(arm)
+library(modelsummary)
+library(ggplot2)
+
+modelplot(logistic_reg, coef_omit="Intercept", color="darkgreen", size=1) +
+  labs(title="Coefficients for logistic regression model")+
+  scale_color_brewer(type = 'qual')
+
+modelplot(logistic_reg, exponentiate = TRUE) +
+  scale_x_log10() +
+  xlab("Odds Ratios and 95% confidence intervals")
 ```
 
-- 52 Percent test set accuracy
+- 62 Percent test set accuracy
 
 ```{r}
 tuned_RF$importance[order((tuned_RF$importance[,1] + tuned_RF$importance[,2])/2),1:2]
 
-tuned_RF$importance[order(tuned_RF$importance[,1]),1:2]
-tuned_RF$importance[order(tuned_RF$importance[,2]),1:2]
+tuned_RF$importance[order(tuned_RF$importance[,3]),1:3]
+tuned_RF$importance[order(tuned_RF$importance[,3]),1:2]
+
 
 order((tuned_RF$importance[,1] + tuned_RF$importance[,2])/2)
+
+tree
 ```
